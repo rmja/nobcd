@@ -137,25 +137,37 @@ impl ValuePrimitive for u64 {
 }
 
 impl BcdNumber<1> {
+    const MAX: u8 = 99;
+
     pub fn from_u8(value: u8) -> Self {
+        assert!(value < Self::MAX);
         Self::from_value(value)
     }
 }
 
 impl BcdNumber<2> {
+    const MAX: u16 = 9999;
+
     pub fn from_u16(value: u16) -> Self {
+        assert!(value < Self::MAX);
         Self::from_value(value)
     }
 }
 
 impl BcdNumber<4> {
+    const MAX: u32 = 99999999;
+
     pub fn from_u32(value: u32) -> Self {
+        assert!(value < Self::MAX);
         Self::from_value(value)
     }
 }
 
 impl BcdNumber<8> {
+    const MAX: u64 = 99999999_99999999;
+    
     pub fn from_u64(value: u64) -> Self {
+        assert!(value < Self::MAX);
         Self::from_value(value)
     }
 }
