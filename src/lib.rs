@@ -1,6 +1,6 @@
 #![cfg_attr(not(test), no_std)]
 
-use funty::Integral;
+use core::ops::{Add, Div, Mul, Sub};
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct BcdNumber<const BYTES: usize> {
@@ -23,16 +23,16 @@ impl<const BYTES: usize> BcdNumber<BYTES> {
         Ok(Self { data: bcd })
     }
 
-    fn from_value<T: Integral + From<u8>>(mut value: T) -> Self {
-        let ten: T = 10u8.into();
+    fn from_value<T: ValuePrimitive>(mut value: T) -> Self {
         let mut data = [0; BYTES];
         let mut index = BYTES - 1;
 
         while value > T::ZERO {
             let mut shifts = 0;
             while shifts < 8 {
-                let next_value = value / ten;
-                let digit = (value - next_value * ten).as_u8();
+                let next_value = value / T::TEN;
+                let digit = value - next_value * T::TEN;
+                let digit: u8 = digit.as_u8();
 
                 data[index] |= digit << shifts;
 
@@ -45,15 +45,13 @@ impl<const BYTES: usize> BcdNumber<BYTES> {
         Self { data }
     }
 
-    pub fn value<T: Integral + From<u8>>(&self) -> T {
-        let ten: T = 10u8.into();
-        let hundred: T = 100u8.into();
+    pub fn value<T: ValuePrimitive>(&self) -> T {
         let mut value = T::ZERO;
         for byte in self.data {
             let (high, low) = get_nibbles(byte).unwrap();
             let high: T = high.into();
             let low: T = low.into();
-            value = (value * hundred) + high * ten + low;
+            value = (value * T::HUNDRED) + high * T::TEN + low;
         }
         value
     }
@@ -78,6 +76,63 @@ impl<const BYTES: usize> TryFrom<[u8; BYTES]> for BcdNumber<BYTES> {
 
     fn try_from(value: [u8; BYTES]) -> Result<Self, Self::Error> {
         Self::from_bcd(value)
+    }
+}
+
+pub trait ValuePrimitive:
+    From<u8>
+    + Copy
+    + Clone
+    + Add<Self, Output = Self>
+    + Sub<Self, Output = Self>
+    + Mul<Self, Output = Self>
+    + Div<Self, Output = Self>
+    + PartialOrd<Self>
+{
+    const ZERO: Self;
+    const TEN: Self;
+    const HUNDRED: Self;
+
+    fn as_u8(self) -> u8;
+}
+
+impl ValuePrimitive for u8 {
+    const ZERO: Self = 0;
+    const TEN: Self = 10;
+    const HUNDRED: Self = 100;
+
+    fn as_u8(self) -> u8 {
+        self as u8
+    }
+}
+
+impl ValuePrimitive for u16 {
+    const ZERO: Self = 0;
+    const TEN: Self = 10;
+    const HUNDRED: Self = 100;
+
+    fn as_u8(self) -> u8 {
+        self as u8
+    }
+}
+
+impl ValuePrimitive for u32 {
+    const ZERO: Self = 0;
+    const TEN: Self = 10;
+    const HUNDRED: Self = 100;
+
+    fn as_u8(self) -> u8 {
+        self as u8
+    }
+}
+
+impl ValuePrimitive for u64 {
+    const ZERO: Self = 0;
+    const TEN: Self = 10;
+    const HUNDRED: Self = 100;
+
+    fn as_u8(self) -> u8 {
+        self as u8
     }
 }
 
@@ -122,21 +177,21 @@ mod tests {
     #[test]
     fn u8() {
         let bcd = BcdNumber::from_u8(12);
-        assert_eq!(12, bcd.value());
+        assert_eq!(12u8, bcd.value());
         assert_eq!(&[0x12], bcd.bcd_bytes());
     }
 
     #[test]
     fn u16() {
         let bcd = BcdNumber::from_u16(1234);
-        assert_eq!(1234, bcd.value());
+        assert_eq!(1234u16, bcd.value());
         assert_eq!(&[0x12, 0x34], bcd.bcd_bytes());
     }
 
     #[test]
     fn u32() {
         let bcd = BcdNumber::from_u32(12345678);
-        assert_eq!(12345678, bcd.value());
+        assert_eq!(12345678u32, bcd.value());
         assert_eq!(&[0x12, 0x34, 0x56, 0x78], bcd.bcd_bytes());
     }
 
