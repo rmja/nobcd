@@ -1,4 +1,6 @@
 #![cfg_attr(not(test), no_std)]
+#![feature(const_refs_to_cell)]
+#![feature(const_trait_impl)]
 
 use core::ops::{Add, Div, Mul, Sub};
 
@@ -11,7 +13,7 @@ pub struct BcdNumber<const BYTES: usize> {
 pub struct BcdError;
 
 impl<const BYTES: usize> BcdNumber<BYTES> {
-    const fn from_bcd(bcd: [u8; BYTES]) -> Result<Self, BcdError> {
+    const fn try_from(bcd: [u8; BYTES]) -> Result<Self, BcdError> {
         let mut index = 0;
         while index < BYTES {
             if get_nibbles(bcd[index]).is_err() {
@@ -23,7 +25,7 @@ impl<const BYTES: usize> BcdNumber<BYTES> {
         Ok(Self { data: bcd })
     }
 
-    fn from_value<T: ValuePrimitive>(mut value: T) -> Self {
+    const fn from_value<T: ~const ValuePrimitive>(mut value: T) -> Self {
         let mut data = [0; BYTES];
         let mut index = BYTES - 1;
 
@@ -56,8 +58,16 @@ impl<const BYTES: usize> BcdNumber<BYTES> {
         value
     }
 
-    pub const fn bcd_bytes(&self) -> &[u8; BYTES] {
-        &self.data
+    pub const fn to_bcd_bytes(&self) -> [u8; BYTES] {
+        self.data
+    }
+}
+
+impl<const BYTES: usize> const TryFrom<[u8; BYTES]> for BcdNumber<BYTES> {
+    type Error = BcdError;
+
+    fn try_from(value: [u8; BYTES]) -> Result<Self, Self::Error> {
+        Self::try_from(value)
     }
 }
 
@@ -71,23 +81,26 @@ impl<const BYTES: usize> IntoIterator for BcdNumber<BYTES> {
     }
 }
 
-impl<const BYTES: usize> TryFrom<[u8; BYTES]> for BcdNumber<BYTES> {
-    type Error = BcdError;
-
-    fn try_from(value: [u8; BYTES]) -> Result<Self, Self::Error> {
-        Self::from_bcd(value)
+const fn get_nibbles(byte: u8) -> Result<(u8, u8), BcdError> {
+    let high = (byte & 0xF0) >> 4;
+    let low = byte & 0x0F;
+    if low <= 9 || high <= 9 {
+        Ok((high, low))
+    } else {
+        Err(BcdError)
     }
 }
 
+#[const_trait]
 pub trait ValuePrimitive:
     From<u8>
     + Copy
     + Clone
-    + Add<Self, Output = Self>
-    + Sub<Self, Output = Self>
-    + Mul<Self, Output = Self>
-    + Div<Self, Output = Self>
-    + PartialOrd<Self>
+    + ~const Add<Self, Output = Self>
+    + ~const Sub<Self, Output = Self>
+    + ~const Mul<Self, Output = Self>
+    + ~const Div<Self, Output = Self>
+    + ~const PartialOrd<Self>
 {
     const ZERO: Self;
     const TEN: Self;
@@ -96,7 +109,7 @@ pub trait ValuePrimitive:
     fn as_u8(self) -> u8;
 }
 
-impl ValuePrimitive for u8 {
+impl const ValuePrimitive for u8 {
     const ZERO: Self = 0;
     const TEN: Self = 10;
     const HUNDRED: Self = 100;
@@ -106,7 +119,7 @@ impl ValuePrimitive for u8 {
     }
 }
 
-impl ValuePrimitive for u16 {
+impl const ValuePrimitive for u16 {
     const ZERO: Self = 0;
     const TEN: Self = 10;
     const HUNDRED: Self = 100;
@@ -116,7 +129,7 @@ impl ValuePrimitive for u16 {
     }
 }
 
-impl ValuePrimitive for u32 {
+impl const ValuePrimitive for u32 {
     const ZERO: Self = 0;
     const TEN: Self = 10;
     const HUNDRED: Self = 100;
@@ -126,7 +139,7 @@ impl ValuePrimitive for u32 {
     }
 }
 
-impl ValuePrimitive for u64 {
+impl const ValuePrimitive for u64 {
     const ZERO: Self = 0;
     const TEN: Self = 10;
     const HUNDRED: Self = 100;
@@ -165,20 +178,10 @@ impl BcdNumber<4> {
 
 impl BcdNumber<8> {
     const MAX: u64 = 99999999_99999999;
-    
+
     pub fn from_u64(value: u64) -> Self {
         assert!(value < Self::MAX);
         Self::from_value(value)
-    }
-}
-
-const fn get_nibbles(byte: u8) -> Result<(u8, u8), BcdError> {
-    let high = (byte & 0xF0) >> 4;
-    let low = byte & 0x0F;
-    if low <= 9 || high <= 9 {
-        Ok((high, low))
-    } else {
-        Err(BcdError)
     }
 }
 
@@ -190,21 +193,24 @@ mod tests {
     fn u8() {
         let bcd = BcdNumber::from_u8(12);
         assert_eq!(12u8, bcd.value());
-        assert_eq!(&[0x12], bcd.bcd_bytes());
+        assert_eq!([0x12], bcd.to_bcd_bytes());
+        assert_eq!(bcd, BcdNumber::try_from([0x12]).unwrap());
     }
 
     #[test]
     fn u16() {
         let bcd = BcdNumber::from_u16(1234);
         assert_eq!(1234u16, bcd.value());
-        assert_eq!(&[0x12, 0x34], bcd.bcd_bytes());
+        assert_eq!([0x12, 0x34], bcd.to_bcd_bytes());
+        assert_eq!(bcd, BcdNumber::try_from([0x12, 0x34]).unwrap());
     }
 
     #[test]
     fn u32() {
         let bcd = BcdNumber::from_u32(12345678);
         assert_eq!(12345678u32, bcd.value());
-        assert_eq!(&[0x12, 0x34, 0x56, 0x78], bcd.bcd_bytes());
+        assert_eq!([0x12, 0x34, 0x56, 0x78], bcd.to_bcd_bytes());
+        assert_eq!(bcd, BcdNumber::try_from([0x12, 0x34, 0x56, 0x78]).unwrap());
     }
 
     #[test]
@@ -212,8 +218,12 @@ mod tests {
         let bcd = BcdNumber::from_u64(1234567887654321);
         assert_eq!(1234567887654321u64, bcd.value());
         assert_eq!(
-            &[0x12, 0x34, 0x56, 0x78, 0x87, 0x65, 0x43, 0x21],
-            bcd.bcd_bytes()
+            [0x12, 0x34, 0x56, 0x78, 0x87, 0x65, 0x43, 0x21],
+            bcd.to_bcd_bytes()
+        );
+        assert_eq!(
+            bcd,
+            BcdNumber::try_from([0x12, 0x34, 0x56, 0x78, 0x87, 0x65, 0x43, 0x21]).unwrap()
         );
     }
 }
