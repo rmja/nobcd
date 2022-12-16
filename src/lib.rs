@@ -63,6 +63,16 @@ impl<const BYTES: usize> BcdNumber<BYTES> {
     }
 }
 
+impl<const BYTES: usize> IntoIterator for BcdNumber<BYTES> {
+    type Item = u8;
+
+    type IntoIter = core::array::IntoIter<Self::Item, BYTES>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.data.into_iter()
+    }
+}
+
 impl<const BYTES: usize> TryFrom<[u8; BYTES]> for BcdNumber<BYTES> {
     type Error = BcdError;
 
