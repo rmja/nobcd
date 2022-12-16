@@ -11,7 +11,7 @@ pub struct BcdNumber<const BYTES: usize> {
 pub struct BcdError;
 
 impl<const BYTES: usize> BcdNumber<BYTES> {
-    pub const fn from_bcd(bcd: [u8; BYTES]) -> Result<Self, BcdError> {
+    const fn from_bcd(bcd: [u8; BYTES]) -> Result<Self, BcdError> {
         let mut index = 0;
         while index < BYTES {
             if get_nibbles(bcd[index]).is_err() {
