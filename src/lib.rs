@@ -11,7 +11,7 @@ pub struct BcdNumber<const BYTES: usize> {
 pub struct BcdError;
 
 impl<const BYTES: usize> BcdNumber<BYTES> {
-    pub const fn from(bcd: [u8; BYTES]) -> Result<Self, BcdError> {
+    pub const fn from_bcd(bcd: [u8; BYTES]) -> Result<Self, BcdError> {
         let mut index = 0;
         while index < BYTES {
             if get_nibbles(bcd[index]).is_err() {
@@ -60,6 +60,14 @@ impl<const BYTES: usize> BcdNumber<BYTES> {
 
     pub const fn bcd_bytes(&self) -> &[u8; BYTES] {
         &self.data
+    }
+}
+
+impl<const BYTES: usize> TryFrom<[u8; BYTES]> for BcdNumber<BYTES> {
+    type Error = BcdError;
+
+    fn try_from(value: [u8; BYTES]) -> Result<Self, Self::Error> {
+        Self::from_bcd(value)
     }
 }
 
