@@ -1,0 +1,7 @@
+[package]
+name = "bcd"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+funty = { version = "2", default-features = false }
