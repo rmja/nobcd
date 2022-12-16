@@ -2,6 +2,7 @@
 
 use funty::Integral;
 
+#[derive(PartialEq, Clone, Copy)]
 pub struct BcdNumber<const BYTES: usize> {
     data: [u8; BYTES],
 }
