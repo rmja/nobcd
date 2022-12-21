@@ -115,7 +115,7 @@ impl const ValuePrimitive for u8 {
     const HUNDRED: Self = 100;
 
     fn as_u8(self) -> u8 {
-        self as u8
+        self
     }
 }
 
