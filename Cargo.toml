@@ -1,6 +1,14 @@
 [package]
-name = "bcd"
+name = "nobcd"
 version = "0.1.0"
 edition = "2021"
+description = "A simple BCD number primitive for no_std environments"
+readme = "README.md"
+repository = "https://github.com/rmja/nobcd"
+authors = ["Rasmus Melchior Jacobsen <rmja@laesoe.org>"]
+license = "MIT / Apache-2.0"
+keywords = ["embedded", "bcd", "no_std"]
+exclude = [".github"]
 
 [dependencies]
+defmt = { version = "0.3", optional = true }
