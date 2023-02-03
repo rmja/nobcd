@@ -1,4 +1,4 @@
-#![cfg_attr(not(test), no_std)]
+#![no_std]
 #![feature(const_refs_to_cell)]
 #![feature(const_trait_impl)]
 
@@ -188,6 +188,8 @@ impl BcdNumber<8> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    extern crate alloc;
 
     #[test]
     fn u8() {
