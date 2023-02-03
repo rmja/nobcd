@@ -4,7 +4,7 @@
 
 use core::ops::{Add, Div, Mul, Sub};
 
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Debug, PartialEq, Clone, Copy, Eq)]
 pub struct BcdNumber<const BYTES: usize> {
     data: [u8; BYTES],
 }
