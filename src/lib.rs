@@ -9,7 +9,7 @@ mod defmt_impl;
 
 use core::{ops::{Add, Div, Mul, Sub}, fmt::Debug};
 
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, Hash, PartialEq)]
 pub struct BcdNumber<const BYTES: usize> {
     data: [u8; BYTES],
 }
