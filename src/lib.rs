@@ -4,14 +4,50 @@
 #![feature(const_trait_impl)]
 #![feature(const_try)]
 
-use core::ops::{Add, Div, Mul, Sub};
+#[cfg(feature = "defmt")]
+mod defmt_impl;
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+use core::{ops::{Add, Div, Mul, Sub}, fmt::Debug};
+
+#[derive(Clone, Copy, Eq, PartialEq)]
 pub struct BcdNumber<const BYTES: usize> {
     data: [u8; BYTES],
 }
 
+impl<const BYTES: usize> Debug for BcdNumber<BYTES> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        let mut first = true;
+        for byte in self.data.into_iter().skip_while(|x| *x == 0) {
+            if first {
+                write!(f, "{:x?}", byte)?;
+                first = false;
+            }
+            else {
+                write!(f, "{:02x?}", byte)?;
+            }
+        }
+        Ok(())
+    }
+}
+
+#[cfg(feature = "defmt")]
+impl<const BYTES: usize> defmt::Format for BcdNumber<BYTES> {
+    fn format(&self, fmt: defmt::Formatter) {
+        let mut first = true;
+        for byte in self.data.into_iter().skip_while(|x| *x == 0) {
+            if first {
+                defmt::write!(fmt, "{=u8:x}", byte);
+                first = false;
+            }
+            else {
+                defmt::write!(fmt, "{=u8:02x}", byte);
+            }
+        }
+    }
+}
+
 #[derive(Debug, Eq, PartialEq)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum BcdError {
     Overflow,
     InvalidDigit(u8),
@@ -164,9 +200,9 @@ impl const ValuePrimitive for u64 {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    extern crate std;
 
-    extern crate alloc;
+    use super::*;
 
     #[test]
     fn u8() {
@@ -174,6 +210,7 @@ mod tests {
         assert_eq!(12u8, bcd.value());
         assert_eq!([0x12], bcd.bcd_bytes());
         assert_eq!(bcd, BcdNumber::try_from([0x12]).unwrap());
+        assert_eq!("12", std::format!("{:?}", bcd));
 
         assert_eq!([0x99], BcdNumber::try_new(99u8).unwrap().bcd_bytes());
         assert_eq!(Err(BcdError::Overflow), BcdNumber::<1>::try_new(1_00u8));
@@ -185,6 +222,7 @@ mod tests {
         assert_eq!(1234u16, bcd.value());
         assert_eq!([0x12, 0x34], bcd.bcd_bytes());
         assert_eq!(bcd, BcdNumber::try_from([0x12, 0x34]).unwrap());
+        assert_eq!("1234", std::format!("{:?}", bcd));
 
         assert_eq!(
             [0x99, 0x99],
@@ -199,6 +237,7 @@ mod tests {
         assert_eq!(12345678u32, bcd.value());
         assert_eq!([0x12, 0x34, 0x56, 0x78], bcd.bcd_bytes());
         assert_eq!(bcd, BcdNumber::try_from([0x12, 0x34, 0x56, 0x78]).unwrap());
+        assert_eq!("12345678", std::format!("{:?}", bcd));
 
         assert_eq!(
             [0x99, 0x99, 0x99, 0x99],
@@ -222,6 +261,7 @@ mod tests {
             bcd,
             BcdNumber::try_from([0x12, 0x34, 0x56, 0x78, 0x87, 0x65, 0x43, 0x21]).unwrap()
         );
+        assert_eq!("1234567887654321", std::format!("{:?}", bcd));
 
         assert_eq!(
             [0x99, 0x99, 0x99, 0x99, 0x99, 0x99, 0x99, 0x99],
@@ -234,4 +274,12 @@ mod tests {
             BcdNumber::<8>::try_new(1_00000000_00000000u64)
         );
     }
+
+    #[test]
+    fn fmt() {
+        assert_eq!("1234", std::format!("{:?}", BcdNumber::<8>::try_new(1234u16).unwrap()));
+        assert_eq!("1020304", std::format!("{:?}", BcdNumber::<8>::try_new(1020304u32).unwrap()));
+        assert_eq!("10203040", std::format!("{:?}", BcdNumber::<8>::try_new(10203040u32).unwrap()));
+    }
+
 }
