@@ -22,8 +22,8 @@ jobs:
     - name: Update local toolchain
       run: |
         rustup update
+        rustup install nightly
         rustup component add clippy
-        rustup install nightly   
     - uses: actions/checkout@v3
     - name: Build
       run: cargo build --verbose
