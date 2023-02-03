@@ -1,6 +1,8 @@
 #![no_std]
+#![feature(const_convert)]
 #![feature(const_refs_to_cell)]
 #![feature(const_trait_impl)]
+#![feature(const_try)]
 
 use core::ops::{Add, Div, Mul, Sub};
 
@@ -9,44 +11,52 @@ pub struct BcdNumber<const BYTES: usize> {
     data: [u8; BYTES],
 }
 
-#[derive(Debug)]
-pub struct BcdError;
+#[derive(Debug, Eq, PartialEq)]
+pub enum BcdError {
+    Overflow,
+    InvalidDigit(u8),
+}
 
 impl<const BYTES: usize> BcdNumber<BYTES> {
-    const fn try_from(bcd: [u8; BYTES]) -> Result<Self, BcdError> {
-        let mut index = 0;
-        while index < BYTES {
-            if get_nibbles(bcd[index]).is_err() {
-                return Err(BcdError);
-            }
-            index += 1;
-        }
-
-        Ok(Self { data: bcd })
-    }
-
-    const fn from_value<T: ~const ValuePrimitive>(mut value: T) -> Self {
+    /// Create a new BCD number from its value
+    pub const fn try_new<T: ~const ValuePrimitive>(mut value: T) -> Result<Self, BcdError> {
         let mut data = [0; BYTES];
-        let mut index = BYTES - 1;
+        let mut index = BYTES as isize - 1;
 
         while value > T::ZERO {
+            if index < 0 {
+                return Err(BcdError::Overflow);
+            }
+
             let mut shifts = 0;
             while shifts < 8 {
                 let next_value = value / T::TEN;
                 let digit = value - next_value * T::TEN;
                 let digit: u8 = digit.as_u8();
 
-                data[index] |= digit << shifts;
+                data[index as usize] |= digit << shifts;
 
                 value = next_value;
                 shifts += 4;
             }
-            index = index.saturating_sub(1);
+            index -= 1;
         }
 
-        Self { data }
+        Ok(Self { data })
     }
 
+    /// Get a BCD number from a series of bytes where each nibble represent a digit
+    const fn try_from(bcd: [u8; BYTES]) -> Result<Self, BcdError> {
+        let mut index = 0;
+        while index < BYTES {
+            get_nibbles(bcd[index])?;
+            index += 1;
+        }
+
+        Ok(Self { data: bcd })
+    }
+
+    /// Get the number value
     pub fn value<T: ValuePrimitive>(&self) -> T {
         let mut value = T::ZERO;
         for byte in self.data {
@@ -58,7 +68,8 @@ impl<const BYTES: usize> BcdNumber<BYTES> {
         value
     }
 
-    pub const fn to_bcd_bytes(&self) -> [u8; BYTES] {
+    /// Get the BCD encoded bytes
+    pub const fn bcd_bytes(&self) -> [u8; BYTES] {
         self.data
     }
 }
@@ -84,10 +95,12 @@ impl<const BYTES: usize> IntoIterator for BcdNumber<BYTES> {
 const fn get_nibbles(byte: u8) -> Result<(u8, u8), BcdError> {
     let high = (byte & 0xF0) >> 4;
     let low = byte & 0x0F;
-    if low <= 9 || high <= 9 {
-        Ok((high, low))
+    if high > 9 {
+        Err(BcdError::InvalidDigit(high))
+    } else if low > 9 {
+        Err(BcdError::InvalidDigit(low))
     } else {
-        Err(BcdError)
+        Ok((high, low))
     }
 }
 
@@ -149,42 +162,6 @@ impl const ValuePrimitive for u64 {
     }
 }
 
-impl BcdNumber<1> {
-    const MAX: u8 = 99;
-
-    pub fn from_u8(value: u8) -> Self {
-        assert!(value < Self::MAX);
-        Self::from_value(value)
-    }
-}
-
-impl BcdNumber<2> {
-    const MAX: u16 = 9999;
-
-    pub fn from_u16(value: u16) -> Self {
-        assert!(value < Self::MAX);
-        Self::from_value(value)
-    }
-}
-
-impl BcdNumber<4> {
-    const MAX: u32 = 99999999;
-
-    pub fn from_u32(value: u32) -> Self {
-        assert!(value < Self::MAX);
-        Self::from_value(value)
-    }
-}
-
-impl BcdNumber<8> {
-    const MAX: u64 = 99999999_99999999;
-
-    pub fn from_u64(value: u64) -> Self {
-        assert!(value < Self::MAX);
-        Self::from_value(value)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -193,39 +170,68 @@ mod tests {
 
     #[test]
     fn u8() {
-        let bcd = BcdNumber::from_u8(12);
+        let bcd = BcdNumber::<1>::try_new(12u8).unwrap();
         assert_eq!(12u8, bcd.value());
-        assert_eq!([0x12], bcd.to_bcd_bytes());
+        assert_eq!([0x12], bcd.bcd_bytes());
         assert_eq!(bcd, BcdNumber::try_from([0x12]).unwrap());
+
+        assert_eq!([0x99], BcdNumber::try_new(99u8).unwrap().bcd_bytes());
+        assert_eq!(Err(BcdError::Overflow), BcdNumber::<1>::try_new(1_00u8));
     }
 
     #[test]
     fn u16() {
-        let bcd = BcdNumber::from_u16(1234);
+        let bcd = BcdNumber::<2>::try_new(1234u16).unwrap();
         assert_eq!(1234u16, bcd.value());
-        assert_eq!([0x12, 0x34], bcd.to_bcd_bytes());
+        assert_eq!([0x12, 0x34], bcd.bcd_bytes());
         assert_eq!(bcd, BcdNumber::try_from([0x12, 0x34]).unwrap());
+
+        assert_eq!(
+            [0x99, 0x99],
+            BcdNumber::try_new(9999u16).unwrap().bcd_bytes()
+        );
+        assert_eq!(Err(BcdError::Overflow), BcdNumber::<2>::try_new(1_0000u16));
     }
 
     #[test]
     fn u32() {
-        let bcd = BcdNumber::from_u32(12345678);
+        let bcd = BcdNumber::<4>::try_new(12345678u32).unwrap();
         assert_eq!(12345678u32, bcd.value());
-        assert_eq!([0x12, 0x34, 0x56, 0x78], bcd.to_bcd_bytes());
+        assert_eq!([0x12, 0x34, 0x56, 0x78], bcd.bcd_bytes());
         assert_eq!(bcd, BcdNumber::try_from([0x12, 0x34, 0x56, 0x78]).unwrap());
+
+        assert_eq!(
+            [0x99, 0x99, 0x99, 0x99],
+            BcdNumber::try_new(99999999u32).unwrap().bcd_bytes()
+        );
+        assert_eq!(
+            Err(BcdError::Overflow),
+            BcdNumber::<4>::try_new(1_00000000u32)
+        );
     }
 
     #[test]
     fn u64() {
-        let bcd = BcdNumber::from_u64(1234567887654321);
+        let bcd = BcdNumber::<8>::try_new(1234567887654321u64).unwrap();
         assert_eq!(1234567887654321u64, bcd.value());
         assert_eq!(
             [0x12, 0x34, 0x56, 0x78, 0x87, 0x65, 0x43, 0x21],
-            bcd.to_bcd_bytes()
+            bcd.bcd_bytes()
         );
         assert_eq!(
             bcd,
             BcdNumber::try_from([0x12, 0x34, 0x56, 0x78, 0x87, 0x65, 0x43, 0x21]).unwrap()
+        );
+
+        assert_eq!(
+            [0x99, 0x99, 0x99, 0x99, 0x99, 0x99, 0x99, 0x99],
+            BcdNumber::try_new(99999999_99999999u64)
+                .unwrap()
+                .bcd_bytes()
+        );
+        assert_eq!(
+            Err(BcdError::Overflow),
+            BcdNumber::<8>::try_new(1_00000000_00000000u64)
         );
     }
 }
