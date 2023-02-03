@@ -1,4 +1,4 @@
-# A simple BCD primitive
+# A simple BCD number primitive
 [![CI](https://github.com/rmja/nobcd/actions/workflows/ci.yml/badge.svg)](https://github.com/rmja/nobcd/actions/workflows/ci.yml)
 [![crates.io](https://img.shields.io/crates/v/nobcd.svg)](https://crates.io/crates/nobcd)
 
