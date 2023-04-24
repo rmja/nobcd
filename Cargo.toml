@@ -12,3 +12,4 @@ exclude = [".github"]
 
 [dependencies]
 defmt = { version = "0.3", optional = true }
+num-traits = { version = "0.2", default-features = false }

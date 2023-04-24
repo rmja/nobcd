@@ -4,7 +4,7 @@
 
 This crate provides a simple `BcdNumber` type that can be used in embedded `no_std` environments.
 
-If you are missing a feature or would like to add a new scheme, please raise an issue or a PR.
+If you are missing a feature, please raise an issue or a PR.
 
 ## Example
 ```rust
