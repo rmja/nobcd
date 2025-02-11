@@ -19,8 +19,7 @@ impl<const BYTES: usize> Debug for BcdNumber<BYTES> {
             if first {
                 write!(f, "{:x?}", byte)?;
                 first = false;
-            }
-            else {
+            } else {
                 write!(f, "{:02x?}", byte)?;
             }
         }
@@ -36,8 +35,7 @@ impl<const BYTES: usize> defmt::Format for BcdNumber<BYTES> {
             if first {
                 defmt::write!(fmt, "{=u8:x}", byte);
                 first = false;
-            }
-            else {
+            } else {
                 defmt::write!(fmt, "{=u8:02x}", byte);
             }
         }
@@ -159,10 +157,7 @@ mod tests {
         assert_eq!(bcd, BcdNumber::from_bcd_bytes([0x12, 0x34]).unwrap());
         assert_eq!("1234", std::format!("{:?}", bcd));
 
-        assert_eq!(
-            [0x99, 0x99],
-            BcdNumber::new(9999u16).unwrap().bcd_bytes()
-        );
+        assert_eq!([0x99, 0x99], BcdNumber::new(9999u16).unwrap().bcd_bytes());
         assert_eq!(Err(BcdError::Overflow), BcdNumber::<2>::new(1_0000u16));
     }
 
@@ -171,17 +166,17 @@ mod tests {
         let bcd = BcdNumber::<4>::new(12345678u32).unwrap();
         assert_eq!(12345678u32, bcd.value());
         assert_eq!([0x12, 0x34, 0x56, 0x78], bcd.bcd_bytes());
-        assert_eq!(bcd, BcdNumber::from_bcd_bytes([0x12, 0x34, 0x56, 0x78]).unwrap());
+        assert_eq!(
+            bcd,
+            BcdNumber::from_bcd_bytes([0x12, 0x34, 0x56, 0x78]).unwrap()
+        );
         assert_eq!("12345678", std::format!("{:?}", bcd));
 
         assert_eq!(
             [0x99, 0x99, 0x99, 0x99],
             BcdNumber::new(99999999u32).unwrap().bcd_bytes()
         );
-        assert_eq!(
-            Err(BcdError::Overflow),
-            BcdNumber::<4>::new(1_00000000u32)
-        );
+        assert_eq!(Err(BcdError::Overflow), BcdNumber::<4>::new(1_00000000u32));
     }
 
     #[test]
@@ -200,9 +195,7 @@ mod tests {
 
         assert_eq!(
             [0x99, 0x99, 0x99, 0x99, 0x99, 0x99, 0x99, 0x99],
-            BcdNumber::new(99999999_99999999u64)
-                .unwrap()
-                .bcd_bytes()
+            BcdNumber::new(99999999_99999999u64).unwrap().bcd_bytes()
         );
         assert_eq!(
             Err(BcdError::Overflow),
@@ -212,9 +205,17 @@ mod tests {
 
     #[test]
     fn fmt() {
-        assert_eq!("1234", std::format!("{:?}", BcdNumber::<8>::new(1234u16).unwrap()));
-        assert_eq!("1020304", std::format!("{:?}", BcdNumber::<8>::new(1020304u32).unwrap()));
-        assert_eq!("10203040", std::format!("{:?}", BcdNumber::<8>::new(10203040u32).unwrap()));
+        assert_eq!(
+            "1234",
+            std::format!("{:?}", BcdNumber::<8>::new(1234u16).unwrap())
+        );
+        assert_eq!(
+            "1020304",
+            std::format!("{:?}", BcdNumber::<8>::new(1020304u32).unwrap())
+        );
+        assert_eq!(
+            "10203040",
+            std::format!("{:?}", BcdNumber::<8>::new(10203040u32).unwrap())
+        );
     }
-
 }
